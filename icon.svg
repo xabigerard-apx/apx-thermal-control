@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="apxFlameOuter" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#3b1d63" />
+      <stop offset="55%" stop-color="#613795" />
+      <stop offset="100%" stop-color="#9b5de5" />
+    </linearGradient>
+    <linearGradient id="apxFlameInner" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#613795" />
+      <stop offset="60%" stop-color="#b794f4" />
+      <stop offset="100%" stop-color="#f3e8ff" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fond noir + bordure mauve APX -->
+  <rect width="512" height="512" rx="96" fill="#09090b" />
+  <rect x="20" y="20" width="472" height="472" rx="80" fill="none" stroke="#613795" stroke-width="22" />
+
+  <!-- Flamme externe -->
+  <path d="M262 84 C272 152 356 196 356 292 C356 364 306 418 248 418 C184 418 144 366 144 300 C144 252 172 212 194 188 C190 218 206 234 218 234 C206 184 228 124 262 84 Z" fill="url(#apxFlameOuter)" />
+
+  <!-- Cœur de la flamme -->
+  <path d="M254 214 C262 254 304 278 304 330 C304 370 278 398 248 398 C216 398 194 370 194 332 C194 302 212 278 224 264 C222 282 232 292 240 292 C232 264 242 236 254 214 Z" fill="url(#apxFlameInner)" />
+</svg>
