@@ -1,7 +1,6 @@
-const CACHE_NAME = 'apx-thermal-auto';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json'];
+const CACHE_NAME = 'apx-thermal-auto-v2';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.svg'];
 
-// Activation immédiate sans attendre la fermeture de l'app
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(
@@ -17,7 +16,6 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Network-First : vérifie toujours GitHub en premier, sinon utilise le cache hors-ligne
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
