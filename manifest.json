@@ -1,0 +1,15 @@
+{
+  "name": "APX Thermal Control",
+  "short_name": "APX Thermal",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#613795",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%2309090b'/><rect x='24' y='24' width='464' height='464' rx='80' fill='none' stroke='%23613795' stroke-width='24'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='150' fill='%23ffffff'>APX</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
