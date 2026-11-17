@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#09090b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>APX Thermal Control</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-tag">APX</span>
+        <h1>THERMAL CONTROL</h1>
+      </div>
+      <span id="connBadge" class="badge offline">OFFLINE</span>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="tabControl">CONTROL</button>
+      <button class="nav-tab" data-tab="tabSchedule">SCHEDULE</button>
+      <button class="nav-tab" data-tab="tabDiag">CONNECT & DIAG</button>
+    </nav>
+
+    <!-- ==================== TAB 1: CONTROL ==================== -->
+    <div id="tabControl" class="tab-view active">
+      <!-- ERROR BANNER -->
+      <div id="errorBanner" class="error-banner hidden">
+        <strong id="errorCode">E-00</strong>
+        <span id="errorDesc">No errors detected.</span>
+      </div>
+
+      <!-- 1. HEATER CONTROLS -->
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">HEATER CONTROLS</span>
+          <span id="ackIndicator" class="ack-pill">READY</span>
+        </div>
+
+        <div class="grid-2">
+          <button id="btnPowerOn" class="btn btn-on" disabled>START</button>
+          <button id="btnPowerOff" class="btn btn-off" disabled>STOP</button>
+        </div>
+
+        <div class="segmented mt-14">
+          <button id="ctrlModePower" class="seg-btn active" disabled>POWER (1–10)</button>
+          <button id="ctrlModeThermo" class="seg-btn" disabled>THERMOSTAT (°C)</button>
+        </div>
+
+        <div class="setpoint-box mt-12">
+          <div class="stepper-row">
+            <button id="ctrlMinus" class="btn-step" disabled>−</button>
+            <div class="setpoint-readout">
+              <span id="ctrlTargetVal" class="target-big">5</span>
+              <span id="ctrlTargetUnit" class="target-unit">LEVEL</span>
+            </div>
+            <button id="ctrlPlus" class="btn-step" disabled>+</button>
+          </div>
+          <input id="ctrlSlider" type="range" min="1" max="10" value="5" disabled />
+          <button id="btnApplyTarget" class="btn btn-primary mt-10" disabled>APPLY SETPOINT</button>
+        </div>
+      </section>
+
+      <!-- 2. LIVE TELEMETRY -->
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">LIVE TELEMETRY</span>
+        </div>
+
+        <div class="telemetry-hero">
+          <div class="cycle-box">
+            <span class="label">SYSTEM STATE</span>
+            <span id="valState" class="cycle-val state-offline">OFFLINE</span>
+          </div>
+          <div class="output-box">
+            <span class="label">ACTIVE OUTPUT</span>
+            <span id="valOutput" class="output-val">--</span>
+          </div>
+        </div>
+
+        <div class="grid-3 mt-12">
+          <div class="stat-tile">
+            <span class="label">CABIN TEMP</span>
+            <span id="valCabinTemp" class="stat-num">-- °C</span>
+          </div>
+          <div class="stat-tile">
+            <span class="label">CHAMBER</span>
+            <span id="valCoreTemp" class="stat-num">-- °C</span>
+          </div>
+          <div class="stat-tile" id="voltTile">
+            <span class="label">BATTERY</span>
+            <span id="valVolt" class="stat-num">-- V</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. AUTO-SHUTOFF TIMER -->
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">AUTO-SHUTOFF TIMER</span>
+          <span id="timerCountdown" class="timer-badge">OFF</span>
+        </div>
+        <div class="timer-presets">
+          <button class="btn-preset active" data-mins="0">OFF</button>
+          <button class="btn-preset" data-mins="30">30m</button>
+          <button class="btn-preset" data-mins="60">1h</button>
+          <button class="btn-preset" data-mins="90">1h30</button>
+          <button class="btn-preset" data-mins="120">2h</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ==================== TAB 2: SCHEDULE ==================== -->
+    <div id="tabSchedule" class="tab-view hidden">
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">AUTO-START SCHEDULE</span>
+          <label class="switch">
+            <input id="masterScheduleToggle" type="checkbox" checked />
+            <span class="slider-round"></span>
+          </label>
+        </div>
+
+        <label>Start Mode & Target</label>
+        <div class="segmented">
+          <button id="schedModePower" class="seg-btn active">POWER (1–10)</button>
+          <button id="schedModeThermo" class="seg-btn">THERMOSTAT (°C)</button>
+        </div>
+
+        <div class="setpoint-box mt-10 mb-12">
+          <div class="stepper-row">
+            <button id="schedMinus" class="btn-step">−</button>
+            <div class="setpoint-readout">
+              <span id="schedTargetVal" class="target-big">8</span>
+              <span id="schedTargetUnit" class="target-unit">LEVEL</span>
+            </div>
+            <button id="schedPlus" class="btn-step">+</button>
+          </div>
+          <input id="schedSlider" type="range" min="1" max="10" value="8" />
+        </div>
+
+        <div class="mb-12">
+          <label>Auto-Stop After</label>
+          <div class="duration-presets">
+            <button class="btn-dur" data-dur="15">15 min</button>
+            <button class="btn-dur active" data-dur="30">30 min</button>
+            <button class="btn-dur" data-dur="45">45 min</button>
+            <button class="btn-dur" data-dur="60">60 min</button>
+          </div>
+        </div>
+
+        <div id="scheduleList" class="schedule-list"></div>
+
+        <button id="btnSyncSchedule" class="btn btn-primary mt-12">SAVE & SYNC SCHEDULE</button>
+      </section>
+    </div>
+
+    <!-- ==================== TAB 3: CONNECT & DIAG ==================== -->
+    <div id="tabDiag" class="tab-view hidden">
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">CONNECTION</span>
+          <span id="signalText" class="muted-text">Signal: --</span>
+        </div>
+
+        <div class="mb-12">
+          <label for="transportSelect">Transport Mode</label>
+          <select id="transportSelect">
+            <option value="ble">Direct Bluetooth (BLE)</option>
+            <option value="sim">UI Simulation</option>
+            <option value="atom">M5Stack Atom Lite (Wi-Fi Bridge)</option>
+          </select>
+        </div>
+
+        <button id="btnConnect" class="btn btn-primary">CONNECT</button>
+
+        <div class="grid-2 mt-14">
+          <div>
+            <label for="protoSelect">Frame Protocol</label>
+            <select id="protoSelect">
+              <option value="0x55">AA 55 (Standard)</option>
+              <option value="0x66">AA 66 (Variant B)</option>
+            </select>
+          </div>
+          <div>
+            <label for="pinInput">BLE PIN Code</label>
+            <input id="pinInput" type="number" value="1234" maxlength="4" />
+          </div>
+        </div>
+
+        <div class="mt-14">
+          <button id="btnPrime" class="btn btn-outline" disabled>PRIME FUEL PUMP (15s)</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <span class="section-title">DIAGNOSTIC HEX LOG</span>
+          <div style="display:flex; gap:12px;">
+            <button id="btnPoll" class="btn-link" disabled>Ping</button>
+            <button id="btnClearLog" class="btn-link">Clear</button>
+          </div>
+        </div>
+        <div id="hexLog" class="hex-console">System initialized. Ready.\n</div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
