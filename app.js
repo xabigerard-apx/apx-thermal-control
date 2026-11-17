@@ -688,9 +688,29 @@
     $('hexLog').textContent = '';
   });
 
-  // Register Service Worker for PWA installability
+// Auto-update check on open & app resume
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    let refreshing = false;
+
+    // Reload automatically when the new Service Worker takes control
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      // Check immediately on cold start
+      reg.update();
+
+      // Check again every time you bring the app back from background
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          reg.update();
+        }
+      });
+    }).catch(() => {});
   }
 
   // Init
