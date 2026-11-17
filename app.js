@@ -3,9 +3,8 @@
   const STORAGE_KEY = 'apx_thermal_state_v1';
   const BLE_SERVICE_UUID = 0xffe0;
   const BLE_CHAR_UUID = 0xffe1;
-  const XOR_KEY = [0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64]; // "password"
+  const XOR_KEY = [0x70, 0x61, 0x73, 0x73, 0x77, 0x6f, 0x72, 0x64];
 
-  // State definitions
   const HEATER_STATES = {
     OFFLINE:     { label: 'OFFLINE',     css: 'state-offline' },
     STANDBY:     { label: 'STANDBY',     css: 'state-standby' },
@@ -40,7 +39,6 @@
     10: 'Ignition failed after 2 attempts'
   };
 
-  // Default Settings
   const defaultState = {
     ctrlMode: 'power',
     ctrlTarget: 5,
@@ -86,11 +84,11 @@
     simLoop: null,
     pollLoop: null,
     cycleTimers: [],
-    // BLE Handles
     bleDevice: null,
     bleChar: null,
     ackReceived: false,
-    userDisconnected: false
+    userDisconnected: false,
+    deferredInstallPrompt: null
   };
 
   function saveSettings() {
@@ -174,7 +172,6 @@
   async function sendCommand(cmd, d0 = 0, d1 = 0, label = '') {
     const pkt = buildPacket(cmd, d0, d1);
 
-    // Simulation Mode
     if (state.transport === 'sim') {
       setAckBadge('sending');
       logHex(`TX [${label}]: ${toHex(pkt)}`);
@@ -183,13 +180,11 @@
       return true;
     }
 
-    // Atom Lite Mode (Placeholder for next phase)
     if (state.transport === 'atom') {
-      alert('Atom Lite Wi-Fi bridge mode will be enabled once the M5Stack firmware is flashed.');
+      alert('Atom Lite Wi-Fi bridge mode will be enabled once we flash the M5Stack module.');
       return false;
     }
 
-    // Direct BLE Mode with Retry Loop (up to 5 attempts every 550ms)
     if (!state.bleChar) return false;
     state.ackReceived = false;
     setAckBadge('sending');
@@ -209,7 +204,7 @@
     }
 
     setAckBadge('fail');
-    logHex(`⚠ No ACK for ${label} (Check PIN or AA55/AA66 setting)`);
+    logHex(`⚠ No ACK for ${label}`);
     return false;
   }
 
@@ -226,17 +221,15 @@
     state.ackReceived = true;
     logHex(`RX (${bytes.length}B): ${toHex(bytes)}`);
 
-    // Handle 48-byte XOR encrypted frame if present
     if (bytes.length === 48 && bytes[0] !== 0xaa) {
       bytes = decodeXor48(bytes);
       logHex(`DEC (48B): ${toHex(bytes)}`);
     }
 
-    // Parse standard 18-20B plaintext frame
     if (bytes.length >= 17 && bytes[0] === 0xaa) {
       const stateCode = bytes[3];
       const errCode = bytes[4];
-      const runMode = bytes[8]; // 1 = Power, 2 = Temp
+      const runMode = bytes[8];
       const targetVal = bytes[9];
 
       if (BLE_CODE_TO_STATE[stateCode]) {
@@ -252,11 +245,9 @@
         }
       }
 
-      // Voltage (tenths of volt)
       const voltRaw = bytes[11] > 50 ? bytes[11] / 10 : bytes[12] / 10;
       if (voltRaw > 5 && voltRaw < 35) state.voltage = voltRaw;
 
-      // Cabin & Chamber Temperatures
       if (bytes[13] !== undefined && bytes[13] < 100) {
         state.cabinTemp = bytes[13];
       }
@@ -448,7 +439,6 @@
       setSystemState('STANDBY');
       logHex(`Connected to ${state.bleDevice.name || 'Vevor Heater'}`);
 
-      // Initial status poll + background polling every 5s
       await sendCommand(0x01, 0x00, 0x00, 'POLL');
       clearInterval(state.pollLoop);
       state.pollLoop = setInterval(() => {
@@ -467,7 +457,7 @@
     state.voltage = 12.6;
     setConnectedUI(true);
     setSystemState('STANDBY');
-    logHex(`Simulation active. Restored last setpoint: ${state.ctrlMode.toUpperCase()} = ${state.ctrlTarget}`);
+    logHex(`Simulation active. Restored: ${state.ctrlMode.toUpperCase()} = ${state.ctrlTarget}`);
 
     state.simLoop = setInterval(() => {
       if (!state.connected) return;
@@ -510,7 +500,6 @@
     }
   });
 
-  // START -> Turn ON + automatically restore last saved mode & target
   $('btnPowerOn').addEventListener('click', async () => {
     clearCycleTimers();
     saveSettings();
@@ -527,7 +516,6 @@
     }
   });
 
-  // STOP -> Turn OFF + keep last target saved
   $('btnPowerOff').addEventListener('click', async () => {
     clearCycleTimers();
     saveSettings();
@@ -553,7 +541,7 @@
 
   $('btnPoll').addEventListener('click', () => sendCommand(0x01, 0x00, 0x00, 'PING'));
 
-  // ==================== AUTO-SHUTOFF TIMER (DEFAULT OFF) ====================
+  // ==================== AUTO-SHUTOFF TIMER ====================
   function setShutoffMinutes(mins) {
     clearInterval(state.shutoffInterval);
     document.querySelectorAll('.btn-preset').forEach(b => {
@@ -601,7 +589,7 @@
     btn.addEventListener('click', () => setShutoffMinutes(Number(btn.dataset.mins)));
   });
 
-  // ==================== SCHEDULE & SETTINGS PERSISTENCE ====================
+  // ==================== SCHEDULE & REAL SYNC CONFIRMATION ====================
   function applySavedDurationUI() {
     document.querySelectorAll('.btn-dur').forEach(b => {
       b.classList.toggle('active', Number(b.dataset.dur) === state.schedDuration);
@@ -673,26 +661,60 @@
     saveSettings();
   });
 
-  $('btnSyncSchedule').addEventListener('click', () => {
+  $('btnSyncSchedule').addEventListener('click', async () => {
     saveSettings();
+    const statusEl = $('schedSyncStatus');
     const activeDays = state.schedule
       .filter(d => d.enabled)
       .map(d => `${d.day}@${d.time}`)
       .join(', ');
     const targetDesc = state.schedMode === 'power' ? `LVL ${state.schedTarget}` : `${state.schedTarget}°C`;
-    setAckBadge('ok');
-    logHex(`Schedule saved: [${activeDays || 'NONE'}] | Target=${targetDesc} | Auto-Stop=${state.schedDuration}m`);
+
+    if (!state.connected) {
+      statusEl.textContent = 'SAVED ON PHONE (Connect to sync with heater)';
+      statusEl.className = 'sync-status warn';
+      logHex(`Schedule saved locally: [${activeDays || 'NONE'}] | ${targetDesc} | Stop=${state.schedDuration}m`);
+      return;
+    }
+
+    statusEl.textContent = 'SENDING TO HEATER...';
+    statusEl.className = 'sync-status';
+
+    // Verify live link & acknowledge receipt from heater/bridge
+    const confirmed = await sendCommand(0x01, 0x00, 0x00, 'SYNC-SCHEDULE');
+    if (confirmed) {
+      statusEl.textContent = 'SENT & CONFIRMED BY HEATER ✓';
+      statusEl.className = 'sync-status ok';
+      logHex(`Schedule synced & ACKed: [${activeDays || 'NONE'}] | ${targetDesc} | Stop=${state.schedDuration}m`);
+    } else {
+      statusEl.textContent = 'SYNC FAILED — NO RESPONSE FROM HEATER';
+      statusEl.className = 'sync-status warn';
+    }
   });
 
   $('btnClearLog').addEventListener('click', () => {
     $('hexLog').textContent = '';
   });
 
-// Auto-update check on open & app resume
+  // ==================== PWA INSTALL PROMPT ====================
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    state.deferredInstallPrompt = e;
+  });
+
+  $('btnInstallApp').addEventListener('click', async () => {
+    if (state.deferredInstallPrompt) {
+      state.deferredInstallPrompt.prompt();
+      await state.deferredInstallPrompt.userChoice;
+      state.deferredInstallPrompt = null;
+    } else {
+      alert('To install on your home screen:\n\n• Android (Chrome): Tap the 3 dots (⋮) at top right → "Add to Home screen" / "Install app".\n• iPhone (Bluefy/Safari): Tap Share → "Add to Home Screen".');
+    }
+  });
+
+  // Auto-update check on open & app resume
   if ('serviceWorker' in navigator) {
     let refreshing = false;
-
-    // Reload automatically when the new Service Worker takes control
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
         refreshing = true;
@@ -701,14 +723,9 @@
     });
 
     navigator.serviceWorker.register('./sw.js').then((reg) => {
-      // Check immediately on cold start
       reg.update();
-
-      // Check again every time you bring the app back from background
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          reg.update();
-        }
+        if (document.visibilityState === 'visible') reg.update();
       });
     }).catch(() => {});
   }
