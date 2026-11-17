@@ -49,6 +49,7 @@
     transport: 'ble',
     protocol: '0x55',
     pin: '1234',
+    savedDeviceId: null,
     schedule: [
       { day: 'MON', enabled: true,  time: '05:30' },
       { day: 'TUE', enabled: true,  time: '05:30' },
@@ -87,8 +88,7 @@
     bleDevice: null,
     bleChar: null,
     ackReceived: false,
-    userDisconnected: false,
-    deferredInstallPrompt: null
+    userDisconnected: false
   };
 
   function saveSettings() {
@@ -102,6 +102,7 @@
       transport: state.transport,
       protocol: state.protocol,
       pin: state.pin,
+      savedDeviceId: state.savedDeviceId,
       schedule: state.schedule
     };
     try {
@@ -380,7 +381,7 @@
       badge.textContent = mode === 'sim' ? 'SIMULATION' : 'CONNECTED';
       badge.className = `badge ${mode === 'sim' ? 'sim' : 'online'}`;
       $('btnConnect').textContent = 'DISCONNECT';
-      $('signalText').textContent = mode === 'sim' ? 'Signal: Virtual' : 'Signal: Active BLE';
+      $('signalText').textContent = mode === 'sim' ? 'Signal: Virtual' : `Signal: ${state.bleDevice?.name || 'Active BLE'}`;
     } else {
       clearCycleTimers();
       clearInterval(state.simLoop);
@@ -397,6 +398,20 @@
       .forEach(id => $(id).disabled = !isConn);
   }
 
+  function attachDeviceListeners(device) {
+    if (device._apxListenersAttached) return;
+    device._apxListenersAttached = true;
+
+    device.addEventListener('gattserverdisconnected', () => {
+      logHex('BLE disconnected.');
+      setConnectedUI(false);
+      if (!state.userDisconnected) {
+        logHex('Auto-reconnecting in 3s...');
+        setTimeout(() => reconnectRealBLE(), 3000);
+      }
+    });
+  }
+
   async function connectRealBLE() {
     if (!navigator.bluetooth) {
       alert('Web Bluetooth is not supported in this browser. Use Chrome on Android or Bluefy on iOS.');
@@ -410,18 +425,37 @@
         optionalServices: [BLE_SERVICE_UUID]
       });
 
-      state.bleDevice.addEventListener('gattserverdisconnected', () => {
-        logHex('BLE disconnected.');
-        setConnectedUI(false);
-        if (!state.userDisconnected) {
-          logHex('Auto-reconnecting in 3s...');
-          setTimeout(() => reconnectRealBLE(), 3000);
-        }
-      });
+      state.savedDeviceId = state.bleDevice.id;
+      saveSettings();
+      attachDeviceListeners(state.bleDevice);
 
       await reconnectRealBLE();
     } catch (err) {
       logHex(`BLE Connect aborted: ${err.message}`);
+    }
+  }
+
+  // Silent Auto-Connect to previously paired heater on app launch / resume
+  async function autoConnectSavedBLE() {
+    if (state.transport !== 'ble' || state.connected || state.userDisconnected) return;
+    if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') return;
+
+    try {
+      const devices = await navigator.bluetooth.getDevices();
+      if (!devices || devices.length === 0) return;
+
+      const targetDevice = devices.find(d => d.id === state.savedDeviceId) || devices[0];
+      if (!targetDevice) return;
+
+      logHex(`Found remembered heater (${targetDevice.name || 'Vevor'}). Auto-connecting...`);
+      state.bleDevice = targetDevice;
+      state.savedDeviceId = targetDevice.id;
+      saveSettings();
+      attachDeviceListeners(targetDevice);
+
+      await reconnectRealBLE();
+    } catch (err) {
+      logHex(`Auto-connect skipped: ${err.message}`);
     }
   }
 
@@ -447,7 +481,7 @@
         }
       }, 5000);
     } catch (err) {
-      logHex(`Reconnect failed: ${err.message}`);
+      logHex(`Connect attempt failed: ${err.message}`);
     }
   }
 
@@ -680,7 +714,6 @@
     statusEl.textContent = 'SENDING TO HEATER...';
     statusEl.className = 'sync-status';
 
-    // Verify live link & acknowledge receipt from heater/bridge
     const confirmed = await sendCommand(0x01, 0x00, 0x00, 'SYNC-SCHEDULE');
     if (confirmed) {
       statusEl.textContent = 'SENT & CONFIRMED BY HEATER ✓';
@@ -696,23 +729,7 @@
     $('hexLog').textContent = '';
   });
 
-  // ==================== PWA INSTALL PROMPT ====================
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    state.deferredInstallPrompt = e;
-  });
-
-  $('btnInstallApp').addEventListener('click', async () => {
-    if (state.deferredInstallPrompt) {
-      state.deferredInstallPrompt.prompt();
-      await state.deferredInstallPrompt.userChoice;
-      state.deferredInstallPrompt = null;
-    } else {
-      alert('To install on your home screen:\n\n• Android (Chrome): Tap the 3 dots (⋮) at top right → "Add to Home screen" / "Install app".\n• iPhone (Bluefy/Safari): Tap Share → "Add to Home Screen".');
-    }
-  });
-
-  // Auto-update check on open & app resume
+  // Auto-update check & silent BLE reconnect on open / app resume
   if ('serviceWorker' in navigator) {
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -725,7 +742,10 @@
     navigator.serviceWorker.register('./sw.js').then((reg) => {
       reg.update();
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update();
+        if (document.visibilityState === 'visible') {
+          reg.update();
+          autoConnectSavedBLE();
+        }
       });
     }).catch(() => {});
   }
@@ -734,4 +754,5 @@
   applySavedDurationUI();
   renderSchedule();
   updateTelemetryUI();
+  autoConnectSavedBLE();
 })();
