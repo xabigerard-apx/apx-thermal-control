@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#09090b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>APX Thermal Control</title>
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -30,7 +32,6 @@
 
     <!-- ==================== TAB 1: CONTROL ==================== -->
     <div id="tabControl" class="tab-view active">
-      <!-- ERROR BANNER -->
       <div id="errorBanner" class="error-banner hidden">
         <strong id="errorCode">E-00</strong>
         <span id="errorDesc">No errors detected.</span>
@@ -48,12 +49,12 @@
           <button id="btnPowerOff" class="btn btn-off" disabled>STOP</button>
         </div>
 
-        <div class="segmented mt-14">
+        <div class="segmented mt-8">
           <button id="ctrlModePower" class="seg-btn active" disabled>POWER (1–10)</button>
           <button id="ctrlModeThermo" class="seg-btn" disabled>THERMOSTAT (°C)</button>
         </div>
 
-        <div class="setpoint-box mt-12">
+        <div class="setpoint-box mt-8">
           <div class="stepper-row">
             <button id="ctrlMinus" class="btn-step" disabled>−</button>
             <div class="setpoint-readout">
@@ -63,7 +64,7 @@
             <button id="ctrlPlus" class="btn-step" disabled>+</button>
           </div>
           <input id="ctrlSlider" type="range" min="1" max="10" value="5" disabled />
-          <button id="btnApplyTarget" class="btn btn-primary mt-10" disabled>APPLY SETPOINT</button>
+          <button id="btnApplyTarget" class="btn btn-primary mt-6" disabled>APPLY SETPOINT</button>
         </div>
       </section>
 
@@ -84,7 +85,7 @@
           </div>
         </div>
 
-        <div class="grid-3 mt-12">
+        <div class="grid-3 mt-8">
           <div class="stat-tile">
             <span class="label">CABIN TEMP</span>
             <span id="valCabinTemp" class="stat-num">-- °C</span>
@@ -101,7 +102,7 @@
       </section>
 
       <!-- 3. AUTO-SHUTOFF TIMER -->
-      <section class="card">
+      <section class="card card-compact">
         <div class="section-head">
           <span class="section-title">AUTO-SHUTOFF TIMER</span>
           <span id="timerCountdown" class="timer-badge">OFF</span>
@@ -118,7 +119,7 @@
 
     <!-- ==================== TAB 2: SCHEDULE ==================== -->
     <div id="tabSchedule" class="tab-view hidden">
-      <section class="card">
+      <section class="card full-card">
         <div class="section-head">
           <span class="section-title">AUTO-START SCHEDULE</span>
           <label class="switch">
@@ -127,37 +128,42 @@
           </label>
         </div>
 
-        <label>Start Mode & Target</label>
+        <!-- COMPACT FULL-RANGE TARGET SELECTOR -->
         <div class="segmented">
           <button id="schedModePower" class="seg-btn active">POWER (1–10)</button>
           <button id="schedModeThermo" class="seg-btn">THERMOSTAT (°C)</button>
         </div>
 
-        <div class="setpoint-box mt-10 mb-12">
-          <div class="stepper-row">
-            <button id="schedMinus" class="btn-step">−</button>
+        <div class="setpoint-box compact-setpoint mt-6">
+          <div class="stepper-row mb-0">
+            <button id="schedMinus" class="btn-step btn-step-sm">−</button>
             <div class="setpoint-readout">
-              <span id="schedTargetVal" class="target-big">8</span>
+              <span id="schedTargetVal" class="target-med">8</span>
               <span id="schedTargetUnit" class="target-unit">LEVEL</span>
             </div>
-            <button id="schedPlus" class="btn-step">+</button>
+            <button id="schedPlus" class="btn-step btn-step-sm">+</button>
           </div>
-          <input id="schedSlider" type="range" min="1" max="10" value="8" />
+          <input id="schedSlider" type="range" min="1" max="10" value="8" class="slider-sm" />
         </div>
 
-        <div class="mb-12">
-          <label>Auto-Stop After</label>
+        <!-- AUTO-STOP DURATION -->
+        <div class="mt-6">
           <div class="duration-presets">
-            <button class="btn-dur" data-dur="15">15 min</button>
-            <button class="btn-dur active" data-dur="30">30 min</button>
-            <button class="btn-dur" data-dur="45">45 min</button>
-            <button class="btn-dur" data-dur="60">60 min</button>
+            <button class="btn-dur" data-dur="15">Stop 15m</button>
+            <button class="btn-dur active" data-dur="30">Stop 30m</button>
+            <button class="btn-dur" data-dur="45">Stop 45m</button>
+            <button class="btn-dur" data-dur="60">Stop 60m</button>
           </div>
         </div>
 
-        <div id="scheduleList" class="schedule-list"></div>
+        <!-- DAY-BY-DAY LIST -->
+        <div id="scheduleList" class="schedule-list mt-6"></div>
 
-        <button id="btnSyncSchedule" class="btn btn-primary mt-12">SAVE & SYNC SCHEDULE</button>
+        <!-- SYNC BUTTON + CONFIRMATION STATUS -->
+        <div class="mt-8">
+          <button id="btnSyncSchedule" class="btn btn-primary btn-sm">SAVE & SYNC SCHEDULE</button>
+          <div id="schedSyncStatus" class="sync-status">Ready to sync</div>
+        </div>
       </section>
     </div>
 
@@ -169,7 +175,7 @@
           <span id="signalText" class="muted-text">Signal: --</span>
         </div>
 
-        <div class="mb-12">
+        <div class="mb-8">
           <label for="transportSelect">Transport Mode</label>
           <select id="transportSelect">
             <option value="ble">Direct Bluetooth (BLE)</option>
@@ -180,7 +186,7 @@
 
         <button id="btnConnect" class="btn btn-primary">CONNECT</button>
 
-        <div class="grid-2 mt-14">
+        <div class="grid-2 mt-8">
           <div>
             <label for="protoSelect">Frame Protocol</label>
             <select id="protoSelect">
@@ -194,12 +200,13 @@
           </div>
         </div>
 
-        <div class="mt-14">
-          <button id="btnPrime" class="btn btn-outline" disabled>PRIME FUEL PUMP (15s)</button>
+        <div class="grid-2 mt-8">
+          <button id="btnPrime" class="btn btn-outline btn-sm" disabled>PRIME PUMP</button>
+          <button id="btnInstallApp" class="btn btn-outline btn-sm">INSTALL APP</button>
         </div>
       </section>
 
-      <section class="card">
+      <section class="card flex-grow-card">
         <div class="section-head">
           <span class="section-title">DIAGNOSTIC HEX LOG</span>
           <div style="display:flex; gap:12px;">
