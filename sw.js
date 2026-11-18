@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apx-thermal-auto-v4';
+const CACHE_NAME = 'apx-thermal-auto-v5';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
