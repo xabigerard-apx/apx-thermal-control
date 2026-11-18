@@ -47,7 +47,7 @@
     schedDuration: 30,
     schedMasterEnabled: true,
     transport: 'ble',
-    protocol: '0x55',
+    protocol: '0x66',
     pin: '1234',
     savedDeviceId: null,
     schedule: [
@@ -228,6 +228,51 @@
     }
 
     if (bytes.length >= 17 && bytes[0] === 0xaa) {
+      // Variant AA 66 (48-byte BYD frame)
+      if (bytes[1] === 0x66 && bytes.length >= 32) {
+        const isOn = bytes[3] === 1;
+        const errCode = bytes[4];
+        const stageCode = bytes[5]; // 0=Standby, 1=Preheat, 2=Ignition, 3=Running
+        const runMode = bytes[8];   // 1=Power, 2=Thermo
+        const targetVal = runMode === 2 ? bytes[9] : bytes[10];
+
+        if (!isOn) {
+          state.systemState = stageCode === 5 ? 'COOLDOWN' : 'STANDBY';
+        } else if (stageCode === 1) {
+          state.systemState = 'PREHEAT';
+        } else if (stageCode === 2) {
+          state.systemState = 'IGNITION';
+        } else {
+          state.systemState = 'RUNNING';
+        }
+
+        showError(errCode);
+
+        if (targetVal > 0 && targetVal <= 36) {
+          if (runMode === 2 && state.ctrlMode !== 'thermo') {
+            ctrlController.applyModeUI('thermo', true);
+          } else if (runMode === 1 && state.ctrlMode !== 'power') {
+            ctrlController.applyModeUI('power', true);
+          }
+        }
+
+        // Voltage (Big-Endian tenths of volt: 0x0076 -> 11.8V)
+        const voltRaw = ((bytes[11] << 8) | bytes[12]) / 10;
+        if (voltRaw > 5 && voltRaw < 35) state.voltage = voltRaw;
+
+        // Chamber Temp (Big-Endian: 0x00b4 -> 180°C)
+        const coreTemp = (bytes[13] << 8) | bytes[14];
+        if (coreTemp >= 0 && coreTemp < 450) state.coreTemp = coreTemp;
+
+        // Controller Internal / Cabin Temp (Big-Endian tenths: 0x006e -> 11.0°C)
+        const cabinRaw = ((bytes[15] << 8) | bytes[16]) / 10;
+        state.cabinTemp = (cabinRaw > -40 && cabinRaw < 85 && cabinRaw !== 0) ? cabinRaw : null;
+
+        updateTelemetryUI();
+        return;
+      }
+
+      // Standard AA 55 frame fallback
       const stateCode = bytes[3];
       const errCode = bytes[4];
       const runMode = bytes[8];
